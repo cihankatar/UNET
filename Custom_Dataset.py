@@ -37,6 +37,7 @@ class KVasir_dataset(Dataset):
             mask_dir = os.path.join(self.mask_path,self.mask_dir_list[index])
             mask = Image.open(mask_dir)
             mask = np.array(mask,dtype=float)
+            mask = mask.astype(np.float32)
             mask = mask[None, :]
             #mask = np.transpose(mask, (2, 0, 1))
             mask = torch.from_numpy(mask)
