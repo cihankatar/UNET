@@ -8,7 +8,7 @@ import torchvision.transforms as transforms
 import torch.nn as nn 
 
 from Loss import Dice_CE_Loss
-from one_hot_encode import one_hot
+from one_hot_encode import one_hot,one_hot1
 from data_loader import loader
 from Model import build_unet
 from PIL import Image
@@ -21,38 +21,11 @@ def Dice_Loss(input,target):
     dice_loss    = 1- (2.*intersection + smooth )/(input.sum() + target.sum() + smooth)
     return dice_loss
 
- 
 def BCE_loss(input,target):
-    sigmoid_f      = nn.Sigmoid()
-    input= sigmoid_f(input)
-    cross_entropy = nn.BCELoss(reduction='mean')
-    return cross_entropy(input, target) 
- 
-def Dice_Loss1(input,target):
-    smooth=1
-    input=input.flatten()
-    target=target.flatten()
-    intersection = (input * target).sum()
-    dice_loss    = 1- (2.*intersection + smooth )/(input.sum() + target.sum() + smooth)
-    return dice_loss
-
-def BCE_loss1(input,target):
-    input=input.flatten()
-    target=target.flatten()
     sigmoid_f      = nn.Sigmoid()
     input= sigmoid_f(input)
     B_cross_entropy = nn.BCELoss(reduction='mean')
     return B_cross_entropy(input, target) 
-
-def CE_Loss(input,target):
-    cross_entropy = nn.CrossEntropyLoss(reduction='sum')
-    return cross_entropy(input,target)
-
-def CE_Loss1(input,target):
-    input=input.flatten()
-    target=target.flatten()
-    cross_entropy = nn.CrossEntropyLoss(reduction='sum')
-    return cross_entropy(input,target)
 
 def Dice_BCE_Loss(input,target):
     return Dice_Loss(input,target) + BCE_loss(input,target)
@@ -64,11 +37,13 @@ def softmax_manuel(input):
 def CE_loss_manuel(input,target):
     return torch.mean(-torch.sum(torch.log(softmax_manuel(input)) * (target)))
 
-
-
-
-
-
+def CE_loss(inputs,target):
+    input_F=torch.flatten(input=inputs,start_dim=0,end_dim=2)
+    target_F=torch.flatten(input=target,start_dim=0,end_dim=2)
+    #inp=inputs.flatten()
+    #tar=target.flatten()
+    cross_entropy = nn.CrossEntropyLoss(reduction='mean')
+    return cross_entropy(input_F,target_F)
 
 def main():
     #n_classes   = 2
@@ -91,23 +66,14 @@ def main():
 
             images,labels   = batch        
             model_output    = model(images)
-            model_output    = torch.transpose(model_output,3,2)
+            model_output    = torch.transpose(model_output,1,3)
+            
+            target          = one_hot(labels,2)
+            target1         = one_hot1(labels,1)
 
-            model_output    = model_output.squeeze()
-            #loss           = criterion(model_output, labels)
-            D_loss           = Dice_Loss(model_output,labels)
-            D_loss1          = Dice_Loss1(model_output,labels)
-            B_loss           = BCE_loss(model_output,labels)
-            B_loss1          = BCE_loss1(model_output,labels)
-            C_Loss           = CE_Loss(model_output,labels)
-            C_Loss1          = CE_Loss1(model_output,labels)
-            CE_manuel        = CE_loss_manuel(model_output,labels)
-            print(f"Epoch {epoch + 1}/{epochs} loss: {loss}")
+            ce_loss_m       = CE_loss_manuel(model_output, target)
+            ce_loss1        = CE_loss(model_output, target1)
 
-            #CE_lossmo      = loss.CE_loss()
-            #CE_loss_manuel = loss.CE_loss_manuel()
-            #dice_loss      = loss.Dice_Loss()
-            #train_loss     = loss.Dice_CE_loss()
             loss     += loss.detach().item() / len(train_loader)
             optimizer.zero_grad()
             loss.backward()
